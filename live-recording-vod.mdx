@@ -1,94 +1,123 @@
 ---
-title: "Live Recording & VOD Conversion"
-description: "How to capture live streams, assemble recorded segments, and publish finalized VOD assets in Videograph."
+title: "Live Streaming & Recording via API"
+description: "How to create a live stream, broadcast over RTMP, play via HLS, and optionally record the session as a VOD asset using the Videograph API."
 ---
 
 ## Overview
 
-Videograph can record an active live stream and automatically convert it into one or more VOD assets once the broadcast ends. When recording is enabled, the system stores incoming segments and assembles them into completed assets that pass through the standard VOD pipeline, including encoding, thumbnails, and metadata handling.
+This guide shows you how to create a live stream using the Videograph API, publish video from an encoder using RTMP, watch the resulting HLS stream, and optionally record the session so it becomes a finalized VOD asset. It provides a single, end‑to‑end workflow suitable for production or test environments.
+
+Videograph supports both non‑recorded and recorded streams. When recording is enabled, segments are captured during the broadcast and later processed into a standard VOD asset.
+
+## Prerequisites
+
+- API access key and secret (see [Authentication & Authorization](/authentication)).  
+- An RTMP‑compatible encoder such as OBS Studio.  
+- An HLS player or integration method (see [Players, SDKs & Embeds](/players-sdks-embeds)).
 
 <Callout kind="info">
 
-Recording is optional per live stream. You can turn it on when creating the stream or enable it before the broadcast begins.
+Recording must be enabled before the stream begins. Recorded sessions are retained for 12 hours from the moment the live stream starts.
 
 </Callout>
 
-## Enabling recording
+## Steps to create, stream, play, and record
 
-To capture a live session for VOD, set the live stream's recording flag before the event starts. The setting applies for the entire session.
+<Steps>
 
-### Typical workflow
+  <Step title="Create a live stream" icon="cast">
 
-- Create or update a live stream with recording enabled.
-- Begin ingesting your broadcast to the provided endpoint.
-- Let Videograph segment and store the incoming media.
-- End your broadcast normally; the asset is finalized automatically.
+  
+Use `POST /video/services/api/v1/livestreams` to create a stream. Provide a title, region, and a boolean `record` flag.
 
-## From live session to asset
+<CodeGroup tabs="cURL">
 
-This timeline shows the path from live ingest to finalized VOD output.
-
-```mermaid
-sequenceDiagram
-  participant E as Encoder
-  participant V as Videograph
-  participant A as VOD Asset
-
-  E->>V: Send live segments
-  V->>V: Store segments while recording enabled
-  V->>A: Assemble and finalize asset after stream ends
+```bash
+curl -X POST "https://api.videograph.ai/video/services/api/v1/livestreams" \
+  -u "ACCESS_KEY:SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "My Live Event",
+    "region": "us-east-1",
+    "record": true
+  }'
 ```
 
-### What happens during a session
+</CodeGroup>
 
-- Segments are written continuously as long as recording is active.
-- If your configuration targets multiple outputs, the system can produce multiple assets for the same session.
-- After the live stream ends, Videograph joins segments, performs integrity checks, and sends the resulting asset into the VOD pipeline.
+Set `record` to `false` if you do not want the broadcast captured.
 
-### Asset availability
+  </Step>
 
-Once finalized:
+  <Step title="Inspect and store response fields" icon="database">
 
-- The asset appears in your VOD catalog.
-- It proceeds through the normal encoding workflow.
-- Thumbnails, metadata, and organization tools behave exactly as they do for uploaded VOD.
+  
+The API response includes:
 
-## Post-processing and trimming
+- `playbackUrl`  
+- `rtmpUrl`  
+- `streamKey`  
+- `streamUUID`  
 
-After the recording becomes a VOD asset, you can adjust it using standard VOD features. Common operations include:
+Store these for configuring your encoder and player integration.
 
-- Updating title, description, and tags.
-- Replacing or editing thumbnails.
-- Creating trimmed edits or shorter cuts by processing the recorded asset with your existing VOD tooling.
+  </Step>
 
-<Callout kind="tip">
+  <Step title="Select the correct RTMP ingest URL" icon="arrow-right">
 
-Trimming and segment-level edits occur *after* the asset is finalized, not during the live session.
+  
+Videograph provides separate ingest URLs depending on whether recording is enabled:
 
-</Callout>
+- Recording enabled (`record` is `true`):  
+  `rtmp://rc-ingest.in.videograph.ai/rec`
 
-## Common workflows
+- Recording disabled (`record` is `false`):  
+  `rtmp://ingest.in.videograph.ai/live`
 
-### Recurring shows
+Use the ingest base plus the `streamKey` returned in the API response.
 
-For repeating content (for example, weekly shows), enable recording on each live stream instance:
+  </Step>
 
-- Create a fresh live stream or reuse your configuration.
-- Keep recording enabled.
-- Each broadcast produces an independent VOD asset.
-- Organize assets with tags or playlists to group episodes.
+  <Step title="Configure and start your encoder" icon="upload-cloud">
 
-### Event capture
+  
+In OBS or another encoder:
 
-For conferences, matches, or one-off sessions:
+- Set the server field to the chosen ingest URL.  
+- Set the stream key to the provided `streamKey`.  
+- Start streaming to push video into Videograph.
 
-- Enable recording on the event's dedicated live stream.
-- Run the broadcast normally.
-- Use post-processing to cut highlight reels or publish the full session.
+Once input is detected, the stream transitions to live and becomes available for playback.
 
-### Multi-asset sessions
+  </Step>
 
-If your workflow needs separate assets for different segments of the same broadcast (for example, pre-show, main event, post-show):
+  <Step title="Watch the live stream via HLS" icon="play-circle">
 
-- Configure your stream to create multiple outputs before going live.
-- Videograph finalizes each asset independently after the live session ends.
+  
+Use the `playbackUrl` value in any HLS‑compatible player. For web integrations, see [Players, SDKs & Embeds](/players-sdks-embeds).
+
+  </Step>
+
+  <Step title="(Optional) Retrieve the finalized recording as VOD" icon="video">
+
+  
+If `record` was set to `true`, Videograph captures and assembles the session after the broadcast ends. Once finalized, the recording appears as a VOD asset.
+
+To fetch metadata such as the VOD playback URL, call `GET /video/services/api/v1/contents/{CONTENT_ID}` once you know the asset identifier.
+
+<CodeGroup tabs="cURL">
+
+```bash
+curl -X GET "https://api.videograph.ai/video/services/api/v1/contents/CONTENT_ID" \
+  -u "ACCESS_KEY:SECRET_KEY"
+```
+
+</CodeGroup>
+
+  </Step>
+
+</Steps>
+
+## How recording becomes a VOD asset
+
+When a recorded live stream ends, Videograph assembles captured segments, performs integrity checks, and pushes the result through the standard VOD pipeline. This includes encoding, thumbnail generation, and metadata processing. You can then edit metadata, update thumbnails, or create derived clips using tools described in the VOD documentation such as [Uploading & Ingesting Video](/vod-uploading-ingesting) and [Metadata, Tags & Organization](/vod-metadata-tags).

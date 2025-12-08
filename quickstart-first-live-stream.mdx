@@ -1,11 +1,11 @@
 ---
 title: "Quickstart: First Live Stream"
-description: "Create your first live stream, push RTMP from an encoder, and test playback."
+description: "Create your first live stream, push RTMP from an encoder, and test playback using the Videograph Live Stream API."
 ---
 
 ## Overview
 
-This quickstart walks you through creating a live stream, sending RTMP from an encoder, and obtaining a playback URL. Videograph supports low-latency live streaming over RTMP or SRT and can produce on-demand assets from live recordings.
+This quickstart walks you through creating a live stream, sending RTMP from an encoder, and obtaining a playback URL. Videograph supports low-latency live streaming over RTMP and can optionally record the live session to produce an on-demand asset.
 
 ## Prerequisites
 
@@ -18,33 +18,43 @@ This quickstart walks you through creating a live stream, sending RTMP from an e
 <Steps>
 
   <Step title="Create a live stream via API" icon="terminal">
-    
-    Use the API to create a new live stream and obtain the ingest endpoint and stream key.
+
+    Use the Videograph API to create a new live stream.  
+    The minimal request includes `title`, `region`, and `record`.
 
     <CodeGroup tabs="curl">
 ```bash
-curl -X POST "https://api.videograph.example/live/streams" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
+curl -X POST "https://api.videograph.ai/video/services/api/v1/livestreams" \
+  -u "YOUR_ACCESS_KEY:YOUR_SECRET_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My First Live Stream"
+    "title": "My First Live Stream",
+    "region": "in",
+    "record": true
   }'
 ```
     </CodeGroup>
 
-    The response includes fields such as `ingest_url` and `stream_key`, which you will use in your encoder.
-  
+    A successful response contains values such as `playbackUrl`, `rtmpUrl`, and `streamKey`, which you will use in your encoder.
+
+    <Callout kind="info">
+
+      
+      Setting `record` to `true` enables live recording. With `record` set to `false`, the stream is ephemeral and not saved. Example RTMP endpoints from legacy setups include `rtmp://rc-ingest.in.videograph.ai/rec` (recording) and `rtmp://ingest.in.videograph.ai/live` (non-recording). These are examples only.
+      
+    </Callout>
+
   </Step>
 
   <Step title="Configure your encoder" icon="settings">
 
-    Set your encoder to push RTMP to Videograph using the values returned by the API call.
+    Configure your encoder to push RTMP using the `rtmpUrl` and `streamKey` returned by the API.
 
     <CodeGroup tabs="encoder-config">
 ```yaml
 rtmp:
-  url: "rtmp://ingest.videograph.example/live"
-  streamKey: "YOUR_STREAM_KEY"
+  url: "rtmp://INGEST_ENDPOINT_FROM_API"
+  streamKey: "STREAM_KEY_FROM_API"
 video:
   codec: h264
   bitrate: 4500k
@@ -60,12 +70,13 @@ audio:
 
   <Step title="Start streaming and verify status" icon="play-circle">
 
-    Start the live output from your encoder.  
-    In your Videograph dashboard or via API, confirm the stream is receiving data and is in a `live` state.
+    Start streaming from your encoder.  
+    In your Videograph dashboard or via API, verify that the stream is receiving data and has transitioned to a `live` state.
 
     <Callout kind="info">
+
       
-      Verification typically becomes available a few seconds after the first RTMP packets arrive.
+      Status updates appear shortly after the first RTMP packets arrive.
       
     </Callout>
 
@@ -73,10 +84,11 @@ audio:
 
   <Step title="Get and test the playback URL" icon="monitor">
 
-    Retrieve the playback URL from the API response or your dashboard.  
-    It typically looks like `https://player.videograph.example/live/STREAM_ID.m3u8`.
+    Retrieve the `playbackUrl` from the API response or your dashboard.  
+    It is an HLS URL that your player can fetch immediately after the stream becomes active.
 
-    Open the URL in your browser or your player integration. See [Players, SDKs & Embeds](/players-sdks-embeds) for embed options.
+    Open the playback URL in your browser or your player integration.  
+    For embed options, see [Players, SDKs & Embeds](/players-sdks-embeds).
 
   </Step>
 
