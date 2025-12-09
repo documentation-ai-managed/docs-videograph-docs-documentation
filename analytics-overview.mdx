@@ -1,0 +1,111 @@
+---
+title: Monitoring Processing & Content Status
+description: >-
+  Learn how to poll the content status API to know when your uploaded video has
+  finished processing and is ready for playback.
+---
+## When to monitor content status
+
+After you upload and ingest a video, it enters the processing pipeline. Before you attempt playback, you should confirm that processing has completed.\
+Use the `GET /video/services/api/v1/contents/{CONTENT_ID}` endpoint to check the current status.
+
+To review upload steps, see [Uploading Videos (Dashboard & API)](/vod-uploading-ingesting). To begin playback, see [Playing Videos (Web & App Integration)](/web-sdk-player).
+
+## Key status values
+
+When you create content, the API returns a content ID, a playback ID, and an initial status.
+
+The main status values are
+
+- `Preparing`: The content has been created and is still being processed.
+
+- `Ready`: Processing has finished, and playback URLs are available.
+
+<Callout kind="info" collapsed="false">
+  The `status` value appears in the response payload under the nested `data` object.
+</Callout>
+
+## Check status with the API
+
+### cURL example
+
+<Request show-lines="true" tabs={[]}>
+  ```bash
+  curl --request GET \
+    --url https://api.videograph.ai/video/services/api/v1/contents/CONTENT_ID \
+    --header "accept: application/json" \
+    --header "authorization: Basic APITOKEN"
+  ```
+</Request>
+
+### Node example
+
+<CodeGroup show-lines="true" tabs={[]}>
+  ```javascript
+  import fetch from "node-fetch";
+
+  async function getStatus(contentId, apiToken) {
+    const res = await fetch(
+      `https://api.videograph.ai/video/services/api/v1/contents/${contentId}`,
+      {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+          authorization: `Basic ${apiToken}`
+        }
+      }
+    );
+
+    return res.json();
+  }
+  ```
+</CodeGroup>
+
+## Example response fields
+
+<Response show-lines="true" tabs={[]}>
+  ```json
+  {
+    "code": 200,
+    "data": {
+      "contentId": "fa6d3dc8-c78c-4c67-98ef",
+      "status": "Preparing",
+      "statusId": 1,
+      "playbackPolicy": ["public"],
+      "title": "Demo Video",
+      "duration": 0
+    },
+    "message": "Data success",
+    "status": "Success"
+  }
+  ```
+</Response>
+
+## Poll until content is ready
+
+Use a simple polling loop to wait until the content reaches status `Ready`.
+
+<Steps>
+  <Step title="Call the status endpoint periodically" icon="refresh-ccw" title-type="p">
+    ```javascript
+    // pseudo-code
+    while (true) {
+      const res = await getStatus("CONTENT_ID", "APITOKEN");
+      const status = res.data.status;
+
+      if (status === "Ready") {
+        break;
+      }
+
+      // wait a short interval before polling again
+      await new Promise(r => setTimeout(r, 5000));
+    }
+    ```
+  </Step>
+
+  <Step title="Proceed to playback" icon="play-circle" title-type="p">
+    Once the status is `Ready`, you may safely request HLS playback URLs or embed the player.\
+    See [Playing Videos (Web & App Integration)](/web-sdk-player) for playback guidance.
+  </Step>
+</Steps>
+

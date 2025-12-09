@@ -1,111 +1,187 @@
 ---
-title: "Uploading & Ingesting Video"
-description: "How to upload on-demand videos to Videograph using the dashboard or APIs, including supported ingest methods, formats, and basic limits."
+title: Uploading Videos (Dashboard & API)
+description: >-
+  Step-by-step guide for uploading on-demand videos to Videograph using the
+  dashboard or the contents API.
 ---
+## Before you start
 
-## Overview
+You upload videos by creating a content object inside your Videograph environment. Each upload is ingested and processed before it becomes playable.
 
-Videograph supports multiple ways to ingest on-demand video so you can integrate uploads into your operational workflows. You can upload files through the web dashboard or create assets through the API using either direct file upload or a source URL that Videograph fetches.
+To call the API, you need a valid access token and secret. See [Authentication & Access Control](/authentication).
 
-After ingest, each video enters the processing pipeline before becoming playable. To authenticate when using the API, you will need an API key. See [Authentication & Authorization](/authentication) for details.
+Supported ingest sources:
 
-## Supported ingest methods
+- Dashboard file upload
 
-### Dashboard upload
+- URL-based ingest through the contents API
 
-You can upload MP4, MOV, and M4V files directly from your browser. This is the simplest method for operators who manage content through the UI.
+## Uploading from the dashboard
 
-### API-based upload
-
-You can create an asset and attach a file using a multipart POST request. This is suitable for automated backends and server-side pipelines.
-
-### URL-based ingest
-
-You can provide a remote file URL, and Videograph will fetch and ingest the source media. This is commonly used when content already exists in external storage.
-
-## Supported formats and basic limits
-
-Videograph ingests the following common container formats:
-
-- MP4
-- MOV
-- M4V
-
-File size limits vary based on workspace configuration. For large or frequently uploaded assets, prefer URLs or server-side API uploads.
-
-<Callout kind="info">
-
-Supported codec details and encoding behavior are covered on the separate page: *Encoding Profiles & Renditions*.
-
-</Callout>
-
-## Uploading via API
-
-Use the `POST /assets` endpoint to create a video asset with either a file or a remote media URL.
-
-<CodeGroup tabs="cURL,JavaScript" show-lines={true}>
-
-```bash
-curl -X POST "https://api.videograph.example/assets" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -F "file=@/path/to/video.mp4"
-```
-
-```javascript
-import fetch from "node-fetch";
-import fs from "fs";
-
-const form = new FormData();
-form.append("file", fs.createReadStream("/path/to/video.mp4"));
-
-const res = await fetch("https://api.videograph.example/assets", {
-  method: "POST",
-  headers: { Authorization: "Bearer YOUR_API_KEY" },
-  body: form
-});
-
-const asset = await res.json();
-console.log(asset);
-```
-
-</CodeGroup>
-
-To ingest from a URL instead of a file, send a JSON body containing the `sourceUrl` field:
-
-````md
-```json
-{
-  "sourceUrl": "https://example.com/video-source.mp4"
-}
-```
-````
-
-## Uploading via dashboard
+Use this method for manual uploads or operator‑driven workflows.
 
 <Steps>
-  <Step title="Open the dashboard upload panel" icon="upload">
-    
-    Navigate to the Video on Demand section of the web dashboard and select the option to upload a new video.
-  
+  <Step title="Open the Video on Demand section" icon="monitor" title-type="p">
+    In the web dashboard, open the Video on Demand section and choose the option to upload a new video.
   </Step>
 
-  <Step title="Choose your file" icon="file">
-
-    Select an MP4, MOV, or M4V file from your local machine.
-  
+  <Step title="Select a file" icon="file" title-type="p">
+    Choose an MP4, MOV, or M4V file from your local machine.
   </Step>
 
-  <Step title="Start ingest" icon="play-circle">
-
-    Confirm the upload. Videograph begins ingesting the file and processing will start automatically.
-  
+  <Step title="Start ingest" icon="play-circle" title-type="p">
+    Confirm the upload to begin ingest. Processing starts automatically, and the item becomes playable once ready.
   </Step>
 </Steps>
 
+## Uploading via API
+
+This method matches the reference flow for adding and streaming VOD content using a remote media URL.
+
+### Step 1: Obtain an access token
+
+You must authenticate before calling the API. Follow the steps in [Authentication & Access Control](/authentication) to obtain your API access token and secret.
+
+### Step 2: Create content with `POST /video/services/api/v1/contents`
+
+A minimal request includes the following fields:
+
+- `title`: human‑readable name
+
+- `content`: array of media sources, each containing a `url` pointing to the remote file
+
+- `playback_policy`: array defining access rules such as `public`
+
+<Callout kind="info" collapsed="false">
+  Videograph automatically fetches and processes the file from the remote `url`. Use a publicly reachable source such as the Tears of Steel sample below.
+</Callout>
+
+<CodeGroup show-lines="true" tabs={[]}>
+  ```bash
+  curl --request POST \
+    --url https://api.videograph.ai/video/services/api/v1/contents \
+    -H "accept: application/json" \
+    -H "content-type: application/json" \
+    --data '{
+      "content": [
+        { "url": "https://d19nx8bm4jzw4h.cloudfront.net/Tears-of-steel.mp4" }
+      ],
+      "playback_policy": ["public"],
+      "title": "Demo Video"
+    }'
+  ```
+
+  ```javascript
+  import fetch from "node-fetch";
+
+  const body = {
+    content: [
+      { url: "https://d19nx8bm4jzw4h.cloudfront.net/Tears-of-steel.mp4" }
+    ],
+    playback_policy: ["public"],
+    title: "Demo Video"
+  };
+
+  const res = await fetch("https://api.videograph.ai/video/services/api/v1/contents", {
+    method: "POST",
+    headers: {
+      "accept": "application/json",
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  console.log(await res.json());
+  ```
+
+  ```php
+  <?php
+
+  $body = [
+    "content" => [
+      ["url" => "https://d19nx8bm4jzw4h.cloudfront.net/Tears-of-steel.mp4"]
+    ],
+    "playback_policy" => ["public"],
+    "title" => "Demo Video"
+  ];
+
+  $ch = curl_init("https://api.videograph.ai/video/services/api/v1/contents");
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    "accept: application/json",
+    "content-type: application/json"
+  ]);
+  curl_setopt($ch, CURLOPT_POST, true);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+
+  $response = curl_exec($ch);
+  curl_close($ch);
+
+  echo $response;
+  ```
+
+  ```python
+  import requests
+
+  body = {
+      "content": [
+          {"url": "https://d19nx8bm4jzw4h.cloudfront.net/Tears-of-steel.mp4"}
+      ],
+      "playback_policy": ["public"],
+      "title": "Demo Video"
+  }
+
+  res = requests.post(
+      "https://api.videograph.ai/video/services/api/v1/contents",
+      headers={
+          "accept": "application/json",
+          "content-type": "application/json"
+      },
+      json=body
+  )
+
+  print(res.json())
+  ```
+
+  ```java
+  import java.net.http.*;
+  import java.net.URI;
+
+  var client = HttpClient.newHttpClient();
+  var body = """
+  {
+    "content": [
+      { "url": "https://d19nx8bm4jzw4h.cloudfront.net/Tears-of-steel.mp4" }
+    ],
+    "playback_policy": ["public"],
+    "title": "Demo Video"
+  }
+  """;
+
+  var req = HttpRequest.newBuilder()
+    .uri(URI.create("https://api.videograph.ai/video/services/api/v1/contents"))
+    .header("accept", "application/json")
+    .header("content-type", "application/json")
+    .POST(HttpRequest.BodyPublishers.ofString(body))
+    .build();
+
+  var res = client.send(req, HttpResponse.BodyHandlers.ofString());
+  System.out.println(res.body());
+  ```
+</CodeGroup>
+
+### Step 3: Check the response
+
+A successful request returns an object containing identifiers such as `contentId` and playback details. The status typically appears as `Preparing` until processing is complete.
+
+<Callout kind="success" collapsed="false">
+  Once the content status becomes `Ready`, playback URLs and additional metadata become available for use in your applications.
+</Callout>
+
 ## When to use each method
 
-- Use **dashboard upload** for manual operations and quick, ad‑hoc content additions.
-- Use **API file upload** when content originates from your servers or automated pipelines.
-- Use **URL-based ingest** when files are already stored in external storage or content delivery sources.
+- Use **dashboard upload** for manual, one‑off, or operator workflows.
 
-After ingest completes, the asset becomes available for playback and further operations such as metadata updates, thumbnail generation, and secure delivery.
+- Use **API ingest** for automated pipelines or when content is already hosted at a remote URL.
+
+After ingest and processing complete, the content is ready for playback and management across your environment.
